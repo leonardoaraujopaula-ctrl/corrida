@@ -1,1 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velocidade Extrema - Corrida</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      border: 4px solid #ff00ff;
+      image-rendering: pixelated;
+    }
+    #gameOver {
+      position: absolute;
+      color: white;
+      font-size: 50px;
+      display: none;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
 
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  
+  <div id="gameOver">
+    <h1>GAME OVER</h1>
+    <p>Distância: <span id="finalScore">0</span>m</p>
+    <button onclick="restartGame()">Jogar Novamente</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const gameOverScreen = document.getElementById("gameOver");
+    const finalScoreEl = document.getElementById("finalScore");
+
+    // Variáveis do jogo
+    let carX = 350;
+    let carY = 450;
+    let carSpeed = 8;
+    let roadSpeed = 12;
+    let score = 0;
+    let gameRunning = true;
+
+    const carWidth = 60;
+    const carHeight = 100;
+
+    let keys = {};
+    let obstacles = [];
+    let roadLines = [];
+
+    // Inicializar linhas da estrada
+    for (let i = 0; i < 15; i++) {
+      roadLines.push({ y: i * 50 });
+    }
+
+    class Obstacle {
+      constructor() {
+        this.width = 55;
+        this.height = 90;
+        this.x = Math.random() * (canvas.width - this.width - 100) + 50;
+        this.y = -this.height;
+        this.speed = roadSpeed + Math.random() * 4;
+      }
+    }
+
+    // Controles
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    function drawRoad() {
+      // Asfalto
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grama lateral
+      ctx.fillStyle = "#0a3d0a";
+      ctx.fillRect(0, 0, 80, canvas.height);
+      ctx.fillRect(canvas.width - 80, 0, 80, canvas.height);
+
+      // Linhas da estrada
+      ctx.fillStyle = "white";
+      for (let line of roadLines) {
+        ctx.fillRect(canvas.width/2 - 8, line.y, 16, 35);
+        line.y += roadSpeed;
+        if (line.y > canvas.height) line.y = -50;
+      }
+    }
+
+    function drawCar() {
+      // Sombra
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(carX + 8, carY + 15, carWidth - 16, carHeight - 20);
+
+      // Carro principal
+      ctx.fillStyle = "#00ffcc";
+      ctx.fillRect(carX, carY, carWidth, carHeight);
+
+      // Detalhes
+      ctx.fillStyle = "#ff00ff";
+      ctx.fillRect(carX + 8, carY + 15, carWidth - 16, 25); // janela
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(carX + 10, carY + 8, 15, 12);  // farol
+      ctx.fillRect(carX + carWidth - 25, carY + 8, 15, 12);
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#ff4444";
+      for (let obs of obstacles) {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        
+        // Detalhe no obstáculo
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(obs.x + 10, obs.y + 20, obs.width - 20, 15);
+        ctx.fillStyle = "#ff4444";
+      }
+    }
+
+    function update() {
+      if (!gameRunning) return;
+
+      // Movimento do carro
+      if (keys["ArrowLeft"] || keys["a"] || keys["A"]) carX -= 12;
+      if (keys["ArrowRight"] || keys["d"] || keys["D"]) carX += 12;
+
+      // Limites da pista
+      if (carX < 90) carX = 90;
+      if (carX > canvas.width - carWidth - 90) carX = canvas.width - carWidth - 90;
+
+      // Aumenta dificuldade com o tempo
+      score += 1;
+      if (score % 800 === 0) roadSpeed += 0.5;
+
+      // Gerar obstáculos
+      if (Math.random() < 0.03) {
+        obstacles.push(new Obstacle());
+      }
+
+      // Atualizar obstáculos
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].y += obstacles[i].speed;
+
+        // Colisão
+        if (
+          carX < obstacles[i].x + obstacles[i].width &&
+          carX + carWidth > obstacles[i].x &&
+          carY < obstacles[i].y + obstacles[i].height &&
+          carY + carHeight > obstacles[i].y
+        ) {
+          gameRunning = false;
+          gameOverScreen.style.display = "block";
+          finalScoreEl.textContent = Math.floor(score / 5);
+        }
+
+        if (obstacles[i].y > canvas.height) {
+          obstacles.splice(i, 1);
+        }
+      }
+    }
+
+    function draw() {
+      drawRoad();
+      drawCar();
+      drawObstacles();
+
+      // HUD
+      ctx.fillStyle = "white";
+      ctx.font = "bold 28px Arial";
+      ctx.fillText(`Distância: ${Math.floor(score/5)}m`, 20, 45);
+      ctx.fillText(`Velocidade: ${Math.floor(roadSpeed * 10)} km/h`, 20, 80);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+      carX = 350;
+      obstacles = [];
+      score = 0;
+      roadSpeed = 12;
+      gameRunning = true;
+      gameOverScreen.style.display = "none";
+    }
+
+    // Iniciar o jogo
+    gameLoop();
+  </script>
+</body>
+</html>
